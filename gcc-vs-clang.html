@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8"/>
+	<meta name="viewport" content="width=device-width,initial-scale=1"/>
+	<title>GCC vs Clang Diagnostics</title>
+	<style>
+		body {
+			font-family: sans-serif;
+		}
+		/* The color scheme I use in my terminal. */
+		pre {
+			overflow-x: auto;
+			font-family: 'Monaco','Consolas','DejaVu Sans Mono',monospace;
+			white-space: pre-wrap;
+			background-color: #000;
+			color: #ddd;
+			padding: 4px;
+			margin: 4px
+		}
+		pre b {
+			color: #fff;
+			font-weight: 500;
+		}
+		pre .bright { font-weight: 500 }
+		pre .black { color: #000 }
+		pre .black.bright { color: #666 }
+		pre .red { color: #900 }
+		pre .red.bright { color: #e50000 }
+		pre .green { color: #00a600 }
+		pre .green.bright { color: #00d900 }
+		pre .yellow { color: #d6d700 }
+		pre .yellow.bright { color: #e5e500 }
+		pre .blue { color: #2769ff }
+		pre .blue.bright { color: #5a87ff }
+		pre .magenta { color: #b200b2 }
+		pre .magenta.bright { color: #e500e5 }
+		pre .cyan { color:#00a6b2 }
+		pre .cyan.bright { color: #00e5e5 }
+		pre .white { color: #bfbfbf }
+		pre .white.bright { color: #e5e5e5 }
+	</style>
+</head>
+<body>
+<h2>Clang vs GCC: Diagnostics</h2>
+<p>GCC and Clang have always been trying to prove who
+has the better error diagnostics.</p>
+<p>Clang first dissed GCC in their <a href="https://clang.llvm.org/diagnostics.html">“Expressive Diagnostics”</a> article. GCC improved their diagnostics and released their comeback article, titled <a href="https://gcc.gnu.org/wiki/ClangDiagnosticsComparison">“Clang Diagnostics Comparison”</a>.</p>
+<p>Let's see who is really better by testing common errors in Clang 6.0.0 and GCC 7.3.0. Note that GCC 8 appears to have improved some messages, but it isn't a stable release yet.</p>
+<h3>Round 1: Missing Semicolons</h3>
+<p>Forgetting semicolons. You do it all the time, and if
+you don't, <i>shut up, you're lying.</i></p>
+<b>semicolon.c</b>
+<pre>
+<span class="blue bright">#include</span> <span class="magenta bright">&lt;stdio.h&gt;</span>
+
+<span class="green bright">int</span> main(<span class="green bright">void</span>) {
+    printf(<span class="magenta bright">"Hello, world!</span><span class="bright red">\n</span><span class="magenta bright">"</span>) <span class="cyan bright">// no semicolon</span>
+    <span class="yellow">return</span> <span class="magenta">0</span> <span class="cyan bright">// no semicolon</span>
+}
+</pre> <p>Here are your average missing 
+semicolons, after the printf statement and the return statement. For 
+such a common error, the compiler should be 
+smart enough to pick that up, right?</p>
+<pre>~ $ gcc-7 -Wall semicolon.c 
+<b>semicolon.c:</b> In function <b>'main'</b>:
+<b>semicolon.c:5:5:</b> <span class="red bright">error:</span> expected ';' before <b>'return'</b>
+     <span class="red bright">return</span> 0 // no semicolon        
+     <span class="red bright">^~~~~~</span>
+</pre>
+<p><i>…right?</i></p>
+<pre>~ $ clang-6.0 -Wall semicolon.c
+<b>semicolon.c:4:30: <span class="bright red">error:</span> expected ';' after expression</b>
+    printf("Hello, world!\n") // no semicolon
+			     <span class="bright green">^</span>
+			     <span class="green">;</span>
+<b>semicolon.c:5:13: <span class="bright red">error:</span> expected ';' after return statement</b>
+    return 0 // no semicolon
+	    <span class="green bright">^</span>
+	    <span class="green">;</span>
+2 errors generated.
+</pre>
+<p>Clang clearly won here. GCC didn't recognize the second error, and the "expected ';' before 'return'" error is like saying that to climb a tree, I must put the tree below me. It is <i>technically</i> true, but it is stupid.</p>
+<p><b>Score:</b> Clang: 1, GCC: 0</p>
+<h3>Round 2: The Missing Brace</h3>
+<p>Forgetting a brace at the end of a function is another common error, although not as common as the former.</p>
+<b>missingbrace.c</b>
+<pre><span class="green bright">int</span> main(<span class="bright green">void</span>) {
+    <span class="yellow">return</span> <span class="magenta">0</span>;
+<span class="bright cyan">// no closing brace</soan>
+</pre>
+<p>Hopefully, GCC can make up for this one.</p>
+<pre>~ $ gcc-7 -Wall missingbrace.c
+<b>missingbrace.c:</b> In function <b>'main'</b>:
+<b>missingbrace.c:2:5:</b> <span class="bright red">error:</span> expected declaration or statement at end of input
+     <span class="bright red">return</span> 0;
+     <span class="bright red">^~~~~~</span></pre>
+<p>God damn it, GCC.</p>
+<pre>~ $ clang-6.0 -Wall missingbrace.c
+<b>missingbrace.c:2:14: <span class="bright red">error:</span> expected '}'</b>
+    return 0;
+	     <span class="bright green">^</span>
+<b>missingbrace.c:1:16: <span class="bright black">note:</span> to match this '{'</b>
+int main(void) {
+	       <span class="bright green">^</span>
+1 error generated.</pre>
+<p>Yet again, the point goes to Clang.</p>
+<p><b>Score:</b> Clang: 2, GCC: 0</p>
+<h3>Round 3: Out of bounds</h3>
+<p>Another common error:</p>
+<b>outofbounds.c</b>
+<pre><span class="bright blue">#include</span> <span class="bright magenta">&lt;stdio.h&gt;</span>
+
+<span class="bright green">static const int</span> array[<span class="bright magenta">4</span>] = { <span class="bright magenta">1</span>, <span class="bright magenta">2</span>, <span class="bright magenta">3</span>, <span class="bright magenta">4</span> };
+
+<span class="bright green">int</span> main(<span class="bright green">void</span>) {
+    <span class="bright yellow">for</span> (<span class="bright green">int</span> i = <span class="bright magenta">0</span>; i &lt;= <span class="bright magenta">4</span> <span class="bright cyan">/* should be &lt; */</span>; i++) {
+        printf(<span class="bright magenta">"<span class="bright red">%d</span> "</span>, array[i]);
+    }
+    <span class="bright yellow">return</span> <span class="bright magenta">0</span>;
+}</pre>
+<p>Interestingly, even with -Warray-bounds, this isn't picked up.</p>
+<p>However, with -O2, GCC actually says something right for a change!</p>
+<pre><b>outofbounds.c:</b> In function <b>'main'</b>:                    
+<b>outofbounds.c:7:9:</b> warning: iteration 4 invokes undefined behavior [<span class="bright magenta">-Waggressive-loop-optimizations</span>]
+        <span class="bright magenta">printf("%d ", array[i])</span>;
+        <span class="bright magenta">^~~~~~~~~~~~~~~~~~~~~~~</span>
+<b>outofbounds.c:6:5:</b> <span class="bright cyan">note:</span> within this loop
+    <span class="bright cyan">for</span> (int i = 0; i &lt;= 4 /* should be &lt; */; i++) {
+    <span class="bright cyan">^~~</span></pre>
+<p>GCC only gets half a point here, though.</p>
+<p><b>Score:</b> Clang: 2, GCC 1/2</p>
+<h3>Round 4: Ifs without Braces</h3>
+<p>Ifs without braces. While they can be convenient, they often cause more harm than good, such as the infamous <a href="https://nakedsecurity.sophos.com/2014/02/24/anatomy-of-a-goto-fail-apples-ssl-bug-explained-plus-an-unofficial-patch/">goto fail bug.</a></p>
+<b>if-else-bug.c</b>
+<pre><span class="bright blue">#include</span> <span class="bright magenta">&lt;stdio.h&gt;</span>
+
+<span class="bright green">int</span> main(<span class="bright green">int</span> argc, <span class="bright green">char</span>**argv) {
+    <span class="bright yellow">if</span> (argc > <span class="bright magenta">1</span>) <span class="bright cyan">// needs braces</span>
+        argc--;
+        argv++;
+    <span class="bright yellow">else</span>
+        printf(<span class="bright magenta">"Usage: %s <arguments>\n"</span>, *argv); <span class="bright cyan">// (this would theoretically be UB because of the argv++)</span>
+    <span class="bright yellow">return</span> <span class="bright magenta">0</span>;
+}</pre>
+<p>Naturally, being Apple's compiler, Clang should pick up on this error.</p>
+<pre>~ $ clang-6.0 -Wall if-else-bug.c
+<b>if-else-bug.c:8:5:</b> <span class="bright red">error:</span> expected expression</b>
+    else
+    <span class="bright green">^</span>
+1 error generated.</span></pre>
+<p>…That is a very bad error. No wonder Apple didn't pick up on that bug.</p>
+<pre>~ $ gcc-7 -Wall if-else-bug.c
+<b>if-else-bug.c:</b> In function <b>'main'</b>:
+<b>if-else-bug.c:5:5:</b> <span class="bright magenta">warning:</span> this <b>'if'</b> clause does not guard... [<span class="bright magenta">-Wmisleading-indentation</span>]
+     <span class="bright magenta">if</span> (argc > 1) // needs braces
+     <span class="bright magenta">^~</span>
+<b>if-else-bug.c:7:9:</b> <span class="bright cyan">note:</span> ...this statement, but the latter is misleadingly indented as if it were guarded by the <b>'if'</b>
+         <span class="bright cyan">argv</span>++;
+         <span class="bright cyan">^~~~</span>
+<b>if-else-bug.c:8:5:</b> <span class="bright red">error:</span> <b>'else'</b> without a previous <b>'if'</b>
+     <span class="bright red">else</span>
+     <span class="bright red">^~~~</span></pre>
+<p>Wow. For once, GCC nailed it!</p>
+<p><b>Score:</b> Clang: 2, GCC: 1 1/2</p>
+<h3>Round 5: Java-style string concatenation</h3>
+<p>Java, JavaScript, C++ (to a point), and a few other languages let you join strings and other things with a '+'. C doesn't do what you might expect.</p>
+<b>string-concat.c</b>
+<pre><span class="bright blue">#include</span> <span class="bright magenta">&lt;stdio.h&gt;</span>
+
+<span class="bright green">int</span> main(<span class="bright green">void</span>) {
+    <span class="bright green">int</span> value = <span class="bright magenta">4</span>;
+    <span class="bright green">const char</span> *string = <span class="bright magenta">"value = "</span> + value; <span class="bright cyan">// This isn't Java!</span>
+    printf(<span class="bright magenta">"%s\n"</span>, string);
+    <span class="bright yellow">return</span> <span class="bright magenta">0</span>;
+}</pre>
+<pre>~ $ gcc-7 -Wall -Wextra -pedantic string-concat.c
+~ $ clang-6.0 -Wall string-concat.c
+<b>string-concat.c:5:37: <span class="bright magenta">warning:</span> adding 'int' to a string does not append to the string [-Wstring-plus-int]</b>
+    const char *string = "value = " + value; // This isn't Java!
+                         <span class="bright green">~~~~~~~~~~~^~~~~~~</span>
+<b>string-concat.c:5:37: <span class="bright black">note:</span> use array indexing to silence this warning</b>
+    const char *string = "value = " + value; // This isn't Java!
+                                    <span class="bright green">^</span>
+                         <span class="green">&          [      ]</span>
+1 warning generated.</pre>
+<p>GCC didn't pick it up at all, but Clang gave a very helpful error.</p>
+<p><b>Final Score:</b> Clang: 3, GCC 1 1/2</p>
+
+<h2>The winner is Clang!</h2>
+</body>
+</html>
