@@ -22,7 +22,7 @@
 			color: #fff;
 			font-weight: 500;
 		}
-		pre .bright { font-weight: 500 }
+		pre .bright{font-weight:500}
 		pre .black { color: #000 }
 		pre .black.bright { color: #666 }
 		pre .red { color: #900 }
@@ -128,7 +128,7 @@ int main(void) {
 <b>outofbounds.c:6:5:</b> <span class="bright cyan">note:</span> within this loop
     <span class="bright cyan">for</span> (int i = 0; i &lt;= 4 /* should be &lt; */; i++) {
     <span class="bright cyan">^~~</span></pre>
-<p>GCC only gets half a point here, though.</p>
+<p>GCC only gets half a point here, though, because it doesn't always show this error.</p>
 <p><b>Score:</b> Clang: 2, GCC 1/2</p>
 <h3>Round 4: Ifs without Braces</h3>
 <p>Ifs without braces. While they can be convenient, they often cause more harm than good, such as the infamous <a href="https://nakedsecurity.sophos.com/2014/02/24/anatomy-of-a-goto-fail-apples-ssl-bug-explained-plus-an-unofficial-patch/">goto fail bug.</a></p>
@@ -188,5 +188,6 @@ int main(void) {
 <p><b>Final Score:</b> Clang: 3, GCC 1 1/2</p>
 
 <h2>The winner is Clang!</h2>
+<p style="text-align:center">Copyright &copy;2018 easyaspi314. Content licensed under the MIT License.</p>
 </body>
 </html>
