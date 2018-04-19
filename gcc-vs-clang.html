@@ -140,7 +140,7 @@ int main(void) {
         argc--;
         argv++;
     <span class="bright yellow">else</span>
-        printf(<span class="bright magenta">"Usage: %s <arguments>\n"</span>, *argv); <span class="bright cyan">// (this would theoretically be UB because of the argv++)</span>
+        printf(<span class="bright magenta">"Usage: %s &lt;arguments&gt;\n"</span>, *argv); <span class="bright cyan">// (this would theoretically be UB because of the argv++)</span>
     <span class="bright yellow">return</span> <span class="bright magenta">0</span>;
 }</pre>
 <p>Naturally, being Apple's compiler, Clang should pick up on this error.</p>
