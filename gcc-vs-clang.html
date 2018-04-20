@@ -3,7 +3,7 @@
 <head>
 	<meta charset="utf-8"/>
 	<meta name="viewport" content="width=device-width,initial-scale=1"/>
-	<title>GCC vs Clang Diagnostics</title>
+	<title>GCC vs Clang vs MSVC Diagnostics</title>
 	<style>
 		body {
 			font-family: sans-serif;
@@ -42,11 +42,12 @@
 	</style>
 </head>
 <body>
-<h2>Clang vs GCC: Diagnostics</h2>
-<p>GCC and Clang have always been trying to prove who
-has the better error diagnostics.</p>
+<h2>Clang vs GCC vs MSVC: Diagnostics</h2>
+<b>Now with more tests and MSVC diagnostics!</b>
+<p>GCC and Clang have always been trying to prove who has the better error diagnostics.</p>
 <p>Clang first dissed GCC in their <a href="https://clang.llvm.org/diagnostics.html">“Expressive Diagnostics”</a> article. GCC improved their diagnostics and released their comeback article, titled <a href="https://gcc.gnu.org/wiki/ClangDiagnosticsComparison">“Clang Diagnostics Comparison”</a>.</p>
-<p>Let's see who is really better by testing common errors in Clang 6.0.0 and GCC 7.3.0. Note that GCC 8 appears to have improved some messages, but it isn't a stable release yet.</p>
+<p>Let's see who is really better by testing common errors in Clang 6.0.0, GCC 7.3.0, and, via the Compiler Explorer, MSVC 2017 19.10.25107. Note that GCC 8 appears to have improved some messages, but it isn't a stable release yet.</p>
+<p>I am counting out the static analyzers in MSVC and Clang, as it wouldn't be fair to compare it to GCC's lack of one. Only -Wall or /W3 will be used, unless no errors are found, then I will try -Weverything, -Wextra -Wpedantic, or /Wall.</p>
 <h3>Round 1: Missing Semicolons</h3>
 <p>Forgetting semicolons. You do it all the time, and if
 you don't, <i>shut up, you're lying.</i></p>
@@ -58,16 +59,18 @@ you don't, <i>shut up, you're lying.</i></p>
     printf(<span class="magenta bright">"Hello, world!</span><span class="bright red">\n</span><span class="magenta bright">"</span>) <span class="cyan bright">// no semicolon</span>
     <span class="yellow">return</span> <span class="magenta">0</span> <span class="cyan bright">// no semicolon</span>
 }
-</pre> <p>Here are your average missing 
-semicolons, after the printf statement and the return statement. For 
-such a common error, the compiler should be 
-smart enough to pick that up, right?</p>
+</pre> <p>Here are your average missing semicolons, after the printf statement and the return statement. For such a common error, the compiler should be smart enough to pick that up, right?</p>
 <pre>~ $ gcc-7 -Wall semicolon.c 
 <b>semicolon.c:</b> In function <b>'main'</b>:
 <b>semicolon.c:5:5:</b> <span class="red bright">error:</span> expected ';' before <b>'return'</b>
      <span class="red bright">return</span> 0 // no semicolon        
      <span class="red bright">^~~~~~</span>
 </pre>
+<pre>C:\> cl /W3 semicolon.c
+<b>semicolon.c(5): error C2143: syntax error: missing ';' before 'return'
+semicolon.c(6): error C2143: syntax error: missing ';' before '}'</b>
+Microsoft (R) C/C++ Optimizing Compiler Version 19.10.25017 for x86
+Copyright (C) Microsoft Corporation.  All rights reserved.</pre>
 <p><i>…right?</i></p>
 <pre>~ $ clang-6.0 -Wall semicolon.c
 <b>semicolon.c:4:30: <span class="bright red">error:</span> expected ';' after expression</b>
@@ -80,8 +83,10 @@ smart enough to pick that up, right?</p>
 	    <span class="green">;</span>
 2 errors generated.
 </pre>
-<p>Clang clearly won here. GCC didn't recognize the second error, and the "expected ';' before 'return'" error is like saying that to climb a tree, I must put the tree below me. It is <i>technically</i> true, but it is stupid.</p>
-<p><b>Score:</b> Clang: 1, GCC: 0</p>
+
+
+<p>Clang clearly won here, with MSVC in second. GCC didn't recognize the second error, and the "expected ';' before 'return'" errors from MSVC and GCC are like saying that to climb a tree, I must put the tree below me. It is <i>technically</i> true, but it is stupid.</p>
+<p><b>Score:</b> Clang: 2, GCC: 0, MSVC: 1</p>
 <h3>Round 2: The Missing Brace</h3>
 <p>Forgetting a brace at the end of a function is another common error, although not as common as the former.</p>
 <b>missingbrace.c</b>
@@ -89,13 +94,22 @@ smart enough to pick that up, right?</p>
     <span class="yellow">return</span> <span class="magenta">0</span>;
 <span class="bright cyan">// no closing brace</soan>
 </pre>
-<p>Hopefully, GCC can make up for this one.</p>
+<p>Hopefully, GCC or MSVC can make up for this one.</p>
 <pre>~ $ gcc-7 -Wall missingbrace.c
 <b>missingbrace.c:</b> In function <b>'main'</b>:
 <b>missingbrace.c:2:5:</b> <span class="bright red">error:</span> expected declaration or statement at end of input
      <span class="bright red">return</span> 0;
      <span class="bright red">^~~~~~</span></pre>
 <p>God damn it, GCC.</p>
+<pre>C:\> cl /W3 missingbrace.c
+<b>missingbrace.c(1): fatal error C1075: the left brace '{' was unmatched at the end of the file</b>
+Internal Compiler Error in Z:\opt\compiler-explorer\windows\19.10.25017\lib\native\bin\amd64_x86\cl.exe.  You will be prompted to send an error report to Microsoft later.
+INTERNAL COMPILER ERROR in 'Z:\opt\compiler-explorer\windows\19.10.25017\lib\native\bin\amd64_x86\cl.exe'
+    Please choose the Technical Support command on the Visual C++
+    Help menu, or open the Technical Support help file for more information
+Microsoft (R) C/C++ Optimizing Compiler Version 19.10.25017 for x86
+Copyright (C) Microsoft Corporation.  All rights reserved.</pre>
+<p>I might be wrong, but it looks like MSVC crashed. Nice job, Microsoft. Crash aside, MSVC did better.</p>
 <pre>~ $ clang-6.0 -Wall missingbrace.c
 <b>missingbrace.c:2:14: <span class="bright red">error:</span> expected '}'</b>
     return 0;
@@ -104,8 +118,8 @@ smart enough to pick that up, right?</p>
 int main(void) {
 	       <span class="bright green">^</span>
 1 error generated.</pre>
-<p>Yet again, the point goes to Clang.</p>
-<p><b>Score:</b> Clang: 2, GCC: 0</p>
+<p>Yet again, two points to Clang.</p>
+<p><b>Score:</b> Clang: 4, GCC: 0, MSVC: 2</p>
 <h3>Round 3: Out of bounds</h3>
 <p>Another common error:</p>
 <b>outofbounds.c</b>
@@ -119,17 +133,18 @@ int main(void) {
     }
     <span class="bright yellow">return</span> <span class="bright magenta">0</span>;
 }</pre>
-<p>Interestingly, even with -Warray-bounds, this isn't picked up.</p>
+<p>Interestingly, even with -Warray-bounds or /Wall, this isn't picked up in either Clang or MSVC.</p>
 <p>However, with -O2, GCC actually says something right for a change!</p>
-<pre><b>outofbounds.c:</b> In function <b>'main'</b>:                    
-<b>outofbounds.c:7:9:</b> warning: iteration 4 invokes undefined behavior [<span class="bright magenta">-Waggressive-loop-optimizations</span>]
+<pre>~ $ gcc-7 -Wall -O2 outofbounds.c
+<b>outofbounds.c:</b> In function <b>'main'</b>:                    
+<b>outofbounds.c:7:9:</b> <span class="bright magenta">warning:</span> iteration 4 invokes undefined behavior [<span class="bright magenta">-Waggressive-loop-optimizations</span>]
         <span class="bright magenta">printf("%d ", array[i])</span>;
         <span class="bright magenta">^~~~~~~~~~~~~~~~~~~~~~~</span>
 <b>outofbounds.c:6:5:</b> <span class="bright cyan">note:</span> within this loop
     <span class="bright cyan">for</span> (int i = 0; i &lt;= 4 /* should be &lt; */; i++) {
     <span class="bright cyan">^~~</span></pre>
-<p>GCC only gets half a point here, though, because it doesn't always show this error.</p>
-<p><b>Score:</b> Clang: 2, GCC 1/2</p>
+<p>GCC only gets one point here, though, because it doesn't always show this error.</p>
+<p><b>Score:</b> Clang: 4, GCC: 1, MSVC: 2</p>
 <h3>Round 4: Ifs without Braces</h3>
 <p>Ifs without braces. While they can be convenient, they often cause more harm than good, such as the infamous <a href="https://nakedsecurity.sophos.com/2014/02/24/anatomy-of-a-goto-fail-apples-ssl-bug-explained-plus-an-unofficial-patch/">goto fail bug.</a></p>
 <b>if-else-bug.c</b>
@@ -149,7 +164,12 @@ int main(void) {
     else
     <span class="bright green">^</span>
 1 error generated.</span></pre>
-<p>…That is a very bad error. No wonder Apple didn't pick up on that bug.</p>
+<p>…That is a very useless error. No wonder Apple didn't pick up on that bug.</p>
+<pre><source>C:\> cl /W3 if-else-bug.c
+<b>(7): error C2181: illegal else without matching if</b>
+Microsoft (R) C/C++ Optimizing Compiler Version 19.10.25017 for x86
+Copyright (C) Microsoft Corporation.  All rights reserved.</pre>
+<p>MSVC at least makes <i>some</i> sense, unlike the nonsense Clang spits out.</p>
 <pre>~ $ gcc-7 -Wall if-else-bug.c
 <b>if-else-bug.c:</b> In function <b>'main'</b>:
 <b>if-else-bug.c:5:5:</b> <span class="bright magenta">warning:</span> this <b>'if'</b> clause does not guard... [<span class="bright magenta">-Wmisleading-indentation</span>]
@@ -162,7 +182,7 @@ int main(void) {
      <span class="bright red">else</span>
      <span class="bright red">^~~~</span></pre>
 <p>Wow. For once, GCC nailed it!</p>
-<p><b>Score:</b> Clang: 2, GCC: 1 1/2</p>
+<p><b>Score:</b> Clang: 4, GCC: 3, MSVC: 2</p>
 <h3>Round 5: Java-style string concatenation</h3>
 <p>Java, JavaScript, C++ (to a point), and a few other languages let you join strings and other things with a '+'. C doesn't do what you might expect.</p>
 <b>string-concat.c</b>
@@ -184,10 +204,119 @@ int main(void) {
                                     <span class="bright green">^</span>
                          <span class="green">&          [      ]</span>
 1 warning generated.</pre>
-<p>GCC didn't pick it up at all, but Clang gave a very helpful error.</p>
-<p><b>Final Score:</b> Clang: 3, GCC 1 1/2</p>
+<p>GCC and MSVC didn't pick it up at all, but Clang gave a very helpful error.</p>
+<p><b>Score:</b> Clang: 6, GCC: 3, MSVC: 2</p>
+<h3>Round 6: Forgetting to return a value</h3>
+<p>Sometimes, you forget that a function needs to return a value, or you forget to put a return statement after that switch statement, or whatever.</p>
+<b>no-return.c</b>
+<pre><span class="bright blue">#include</span> <span class="bright magenta">&lt;stdlib.h&gt;</span>
 
+<span class="bright green">int</span> doesNotReturnAValue(<span class="bright green">void</span>) {
+    <span class="bright cyan">// no return value</span>
+}
+
+<span class="bright green">int</span> mightNotReturnAValue(<span class="bright green">void</span>) {
+    <span class="bright yellow">if</span> (rand() % <span class="bright magenta">2</span> == <span class="bright magenta">0</span>) {
+        <span class="bright yellow">return</span> <span class="bright magenta">2</span>;
+    }
+    <span class="bright cyan">// if rand() is odd, there is no return value</span>
+}</pre>
+<pre>~ $ gcc-7 -Wall no-return.c
+<b>no-return.c:</b> In function <b>'doesNotReturnAValue'</b>:
+<b>no-return.c:5:1:</b> <span class="bright magenta">warning:</span> control reaches end of non-void function [<span class="bright magenta">-Wreturn-type</span>]
+ <span class="bright magenta">}
+ ^</span>
+<b>no-return.c:</b> In function <b>'mightNotReturnAValue'</b>:
+<n>no-return.c:12:1:</b> <span class="bright magenta">warning:</span> control reaches end of non-void function [<span class="bright magenta">-Wreturn-type</span>]
+ <span class="bright magenta">}
+ ^</span>
+~ $ clang-6.0 -Wall no-return.c
+<b>no-return.c:5:1: <span class="bright magenta">warning:</span> control reaches end of non-void function [-Wreturn-type]</b>
+}
+<span class="bright green">^</span>
+<b>no-return.c:12:1: <span class="bright magenta">warning:</span> control may reach end of non-void function [-Wreturn-type]</b>
+}
+<span class="bright green">^</span>
+2 warnings generated.</pre>
+<p>Whaaaaaaat… Zero points for zero sense!</p>
+<pre>C:\> cl /W3 no-return.c
+<b>no-return.c(5) : warning C4716: 'doesNotReturnAValue': must return a value
+no-return.c(12) : warning C4715: 'mightNotReturnAValue': not all control paths return a value</b>
+Microsoft (R) C/C++ Optimizing Compiler Version 19.10.25017 for x86
+Copyright (C) Microsoft Corporation.  All rights reserved.</pre>
+<p>That's more like it, MSVC!</p>
+<p><b>Score:</b> Clang: 6, GCC: 3, MSVC: 4</p>
+<h3>Round 7: Forgetting your namespace</h3>
+<p>Time for some C++!</p>
+<p>Forgetting to either add a "using namespace" or put the namespace before your calls is an error that I always make.</p>
+<b>no-namespace.cpp</b>
+<pre><span class="bright blue">#include</span> <span class="bright magenta">&lt;iostream&gt;</span>
+
+<span class="bright green">int</span> main() {
+    cout &lt;&lt; <span class="bright magenta">"Hello, world!\n"</span>; <span class="bright cyan">// should be std::cout</span>
+    <span class="bright yellow">return</span> <span class="bright magenta">0</span>;
+}</pre>
+<p>Let's see what the compilers have to say, shall we?</p>
+<pre>C:\> cl /W3 no-namespace.cpp
+<b>no-namespace.cpp(4): error C2065: 'cout': undeclared identifier</b>
+Microsoft (R) C/C++ Optimizing Compiler Version 19.10.25017 for x86
+Copyright (C) Microsoft Corporation.  All rights reserved.</pre>
+<p>Thanks for nothing, Microsoft.</p>
+<pre>~ $ g++-7 -Wall no-namespace.cpp
+<b>no-namespace.cpp:</b> In function <b>'int main()'</b>:
+<b>no-namespace.cpp:4:5:</b> <span class="bright red">error:</span> <b>'cout'</b> was not declared in this scope
+     <span class="bright red">cout</span> &lt;&lt; "Hello, world!\n"; // should be std::cout
+     <span class="bright red">^~~~</span>
+<b>no-namespace.cpp:4:5:</b> <span class="bright cyan">note:</span> suggested alternative:
+In file included from <b>no-namespace.cpp:1:0:</b>
+<B>/usr/include/c++/7.3.0/iostream:61:18:</b> <span class="bright cyan">note:</span>   <b>'std::cout'</b>
+   extern ostream <span class="bright cyan">cout</span>;  /// Linked to standard output
+                  <span class="bright cyan">^~~~</span></pre>
+<p>I guess that is better. GCC understands that we meant std::cout, although the message is kind of confusing. Let's see Clang's version.</p>
+<pre>~ $ clang++-6.0 -Wall no-namespace.cpp
+<b>no-namespace.cpp:4:5: <span class="bright red">error:</span> use of undeclared identifier 'cout'; did you mean 'std::cout'?</b>
+    cout &lt;&lt; "Hello, world!\n"; // should be std::cout
+    <span class="bright green">^~~~</span>
+    <span class="green">std::cout</span>
+<b>/usr/include/c++/v1/iostream:54:33: <span class="bright black">note:</span> 'std::cout' declared here</b>
+extern _LIBCPP_FUNC_VIS ostream cout;
+                                <span class="bright green">^</span>
+1 error generated.</pre>
+<p>There we go. Same information as GCC, but, unlike GCC, it goes directly to the point and asks if we meant "std::cout", then shows the implementation. Two points to Clang, one point to GCC.</p>
+<p><b>Score:</b> Clang: 8, GCC: 4, MSVC: 4</p>
+<h3>Round 8: dynamic_casting a class itself</h3>
+<p>The C++ dynamic_cast is supposed to be used on a pointer to a class, not on the class itself. It is weird.</p>
+<b>casting-a-class.cpp</b>
+<pre><span class="bright green">class</span> Base {};
+<span class="bright green">class</span> Derived : <span class="bright yellow">public</span> Base {};
+
+<span class="bright green">int</span> main() {
+    Base base;
+    Derived derived = <span class="bright yellow">dynamic_cast</span>&lt;Derived&gt;(base); <span class="bright cyan">// should be used on a pointer</span>
+    <span class="bright yellow">return</span> <span class="bright magenta">0</span>;
+}</pre>
+<pre>~ $ clang++-6.0 -Wall casting-a-class.cpp
+<b>casting-a-class.cpp:6:23: <span class="bright red">error:</span> 'Derived' is not a reference or pointer</b>
+    Derived derived = dynamic_cast&lt;Derived&gt;(base); // should be a pointer
+                      <span class="bright green">^           ~~~~~~~~~</span>
+1 error generated.</pre>
+<p>Huh? Well, no duh, Clang. Why are you erroring, though?</p>
+<pre>~ $ g++-7 -Wall casting-a-class.cpp
+<b>casting-a-class.cpp:</b> In function '<b>int main()</b>':
+<b>casting-a-class.cpp:6:49:</b> <span class="bright red">error:</span> cannot dynamic_cast <b>'base'</b> (of type <b>'class Base'</b>) to type <b>'class Derived'</b> (target is not pointer or reference)
+     Derived derived = dynamic_cast&lt;Derived&gt;(base<span class="bright red">)</span>; // should be a pointer
+                                                 <span class="bright red">^</span></pre>
+<p>GCC makes it a bit clearer, although I don't know what it's pointing to.</p>
+<pre>C:\> cl /W3 casting-a-class.cpp
+<b>casting-a-class.cpp(6): error C2680: 'Derived': invalid target type for dynamic_cast
+casting-a-class.cpp(6): note: target type must be a pointer or reference to a defined class</b>
+Microsoft (R) C/C++ Optimizing Compiler Version 19.10.25017 for x86
+Copyright (C) Microsoft Corporation.  All rights reserved.</pre>
+<p>MSVC is the winner here. It explained the issue quite well.</p>
+<p><b>Score:</b> Clang: 8, GCC: 5, MSVC: 6</p>
 <h2>The winner is Clang!</h2>
+<p>Note that I am not saying that one compiler sucks. All three compilers have their strengths and weaknesses. But Clang has proven itself to be stronger in the diagnostics department.</p>
+
 <p style="text-align:center">Copyright &copy;2018 easyaspi314. Content licensed under the MIT License.</p>
 </body>
 </html>
