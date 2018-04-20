@@ -43,7 +43,7 @@
 </head>
 <body>
 <h2>Clang vs GCC vs MSVC: Diagnostics</h2>
-<b>Now with more tests and MSVC diagnostics!</b>
+<b>Now with more tests and MSVC caret diagnostics!</b>
 <p>GCC and Clang have always been trying to prove who has the better error diagnostics.</p>
 <p>Clang first dissed GCC in their <a href="https://clang.llvm.org/diagnostics.html">“Expressive Diagnostics”</a> article. GCC improved their diagnostics and released their comeback article, titled <a href="https://gcc.gnu.org/wiki/ClangDiagnosticsComparison">“Clang Diagnostics Comparison”</a>.</p>
 <p>Let's see who is really better by testing common errors in Clang 6.0.0, GCC 7.3.0, and, via the Compiler Explorer, MSVC 2017 19.10.25107. Note that GCC 8 appears to have improved some messages, but it isn't a stable release yet.</p>
@@ -66,9 +66,13 @@ you don't, <i>shut up, you're lying.</i></p>
      <span class="red bright">return</span> 0 // no semicolon        
      <span class="red bright">^~~~~~</span>
 </pre>
-<pre>C:\> cl /W3 semicolon.c
-<b>semicolon.c(5): error C2143: syntax error: missing ';' before 'return'
-semicolon.c(6): error C2143: syntax error: missing ';' before '}'</b>
+<pre>C:\> cl /W3 /diagnostics:caret semicolon.c
+<b>semicolon.c(5,5): error C2143: syntax error: missing ';' before 'return'</b>
+    return 0 // no semicolon
+    ^
+<b>semicolon.c(6,1): error C2143: syntax error: missing ';' before '}'</b>
+}
+^
 Microsoft (R) C/C++ Optimizing Compiler Version 19.10.25017 for x86
 Copyright (C) Microsoft Corporation.  All rights reserved.</pre>
 <p><i>…right?</i></p>
@@ -101,8 +105,9 @@ Copyright (C) Microsoft Corporation.  All rights reserved.</pre>
      <span class="bright red">return</span> 0;
      <span class="bright red">^~~~~~</span></pre>
 <p>God damn it, GCC.</p>
-<pre>C:\> cl /W3 missingbrace.c
+<pre>C:\> cl /W3 /diagnostics:caret missingbrace.c
 <b>missingbrace.c(1): fatal error C1075: the left brace '{' was unmatched at the end of the file</b>
+int main(void) {
 Internal Compiler Error in Z:\opt\compiler-explorer\windows\19.10.25017\lib\native\bin\amd64_x86\cl.exe.  You will be prompted to send an error report to Microsoft later.
 INTERNAL COMPILER ERROR in 'Z:\opt\compiler-explorer\windows\19.10.25017\lib\native\bin\amd64_x86\cl.exe'
     Please choose the Technical Support command on the Visual C++
@@ -165,8 +170,10 @@ int main(void) {
     <span class="bright green">^</span>
 1 error generated.</span></pre>
 <p>…That is a very useless error. No wonder Apple didn't pick up on that bug.</p>
-<pre><source>C:\> cl /W3 if-else-bug.c
+<pre><source>C:\> cl /W3 /diagnostics:caret if-else-bug.c
 <b>(7): error C2181: illegal else without matching if</b>
+    else
+    ^
 Microsoft (R) C/C++ Optimizing Compiler Version 19.10.25017 for x86
 Copyright (C) Microsoft Corporation.  All rights reserved.</pre>
 <p>MSVC at least makes <i>some</i> sense, unlike the nonsense Clang spits out.</p>
@@ -239,7 +246,7 @@ Copyright (C) Microsoft Corporation.  All rights reserved.</pre>
 <span class="bright green">^</span>
 2 warnings generated.</pre>
 <p>Whaaaaaaat… Zero points for zero sense!</p>
-<pre>C:\> cl /W3 no-return.c
+<pre>C:\> cl /W3 /diagnostics:caret no-return.c
 <b>no-return.c(5) : warning C4716: 'doesNotReturnAValue': must return a value
 no-return.c(12) : warning C4715: 'mightNotReturnAValue': not all control paths return a value</b>
 Microsoft (R) C/C++ Optimizing Compiler Version 19.10.25017 for x86
@@ -257,8 +264,10 @@ Copyright (C) Microsoft Corporation.  All rights reserved.</pre>
     <span class="bright yellow">return</span> <span class="bright magenta">0</span>;
 }</pre>
 <p>Let's see what the compilers have to say, shall we?</p>
-<pre>C:\> cl /W3 no-namespace.cpp
+<pre>C:\> cl /W3 /diagnostics:caret no-namespace.cpp
 <b>no-namespace.cpp(4): error C2065: 'cout': undeclared identifier</b>
+    cout &lt;&lt; "Hello, world!\n"; // should be std::cout
+    ^
 Microsoft (R) C/C++ Optimizing Compiler Version 19.10.25017 for x86
 Copyright (C) Microsoft Corporation.  All rights reserved.</pre>
 <p>Thanks for nothing, Microsoft.</p>
@@ -307,12 +316,16 @@ extern _LIBCPP_FUNC_VIS ostream cout;
      Derived derived = dynamic_cast&lt;Derived&gt;(base<span class="bright red">)</span>; // should be a pointer
                                                  <span class="bright red">^</span></pre>
 <p>GCC makes it a bit clearer, although I don't know what it's pointing to.</p>
-<pre>C:\> cl /W3 casting-a-class.cpp
-<b>casting-a-class.cpp(6): error C2680: 'Derived': invalid target type for dynamic_cast
-casting-a-class.cpp(6): note: target type must be a pointer or reference to a defined class</b>
+<pre>C:\> cl /W3 /diagnostics:caret casting-a-class.cpp
+<b>casting-a-class.cpp(6,49): error C2680: 'Derived': invalid target type for dynamic_cast</b>
+    Derived derived = dynamic_cast&lt;Derived&gt;(base); // should be used on a pointer
+                                                ^
+<b>casting-a-class.cpp(6,49): note: target type must be a pointer or reference to a defined class</b>
+    Derived derived = dynamic_cast&lt;Derived&gt;(base); // should be used on a pointer
+                                                ^
 Microsoft (R) C/C++ Optimizing Compiler Version 19.10.25017 for x86
 Copyright (C) Microsoft Corporation.  All rights reserved.</pre>
-<p>MSVC is the winner here. It explained the issue quite well.</p>
+<p>MSVC is the winner here. It explained the issue quite well, even though it also points to the wrong thing.</p>
 <p><b>Score:</b> Clang: 8, GCC: 5, MSVC: 6</p>
 <h2>The winner is Clang!</h2>
 <p>Note that I am not saying that one compiler sucks. All three compilers have their strengths and weaknesses. But Clang has proven itself to be stronger in the diagnostics department.</p>
